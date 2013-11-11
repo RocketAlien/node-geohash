@@ -6,6 +6,12 @@
   "repository": {
     "url": "https://github.com/sunng87/node-geohash"
   },
+  "contributors": [
+    {
+      "name": "Dmitri Bouianov",
+      "email": "dmitri@rocketalien.com"
+    }
+  ],
   "engines": {
     "node": ">=v0.2.0"
   },

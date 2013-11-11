@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011, Sun Ning.
+ * Copyright (c) 2011, Sun Ning and contributors.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,36 +23,51 @@
 
 var BASE32_CODES = "0123456789bcdefghjkmnpqrstuvwxyz";
 var BASE32_CODES_DICT = {};
-for(var i=0; i<BASE32_CODES.length; i++) {
-    BASE32_CODES_DICT[BASE32_CODES.charAt(i)]=i;
+for (var i = 0; i < BASE32_CODES.length; i++) {
+    BASE32_CODES_DICT[BASE32_CODES.charAt(i)] = i;
 }
 
-var encode = function(latitude, longitude, numberOfChars){
-    numberOfChars = numberOfChars || 9;
+var NUM_NEIGHBORS = 8;
+var NEIGHBOR_DIRECTIONS = [
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [-1, 1],
+    [-1, 0],
+    [-1, -1],
+    [0, -1],
+    [1, -1]
+];
+
+var encode = function(latitude, longitude, precision) {
+    precision = precision || 9;
     var chars = [], bits = 0;
     var hash_value = 0;
 
-    var maxlat = 90, minlat = -90;
+    var maxlat = 90,  minlat = -90;
     var maxlon = 180, minlon = -180;
 
     var mid;
     var islon = true;
-    while(chars.length < numberOfChars) {
-        if (islon){
-            mid = (maxlon+minlon)/2;
-            if(longitude > mid){
+    while (chars.length < precision) {
+        if (islon) {
+            mid = (maxlon + minlon) / 2;
+            if (longitude > mid) {
                 hash_value = (hash_value << 1) + 1;
-                minlon=mid;
-            } else {
-                hash_value = (hash_value << 1) + 0;
-                maxlon=mid;
+                minlon = mid;
             }
-        } else {
-            mid = (maxlat+minlat)/2;
-            if(latitude > mid ){
+            else {
+                hash_value = (hash_value << 1) + 0;
+                maxlon = mid;
+            }
+        }
+        else {
+            mid = (maxlat + minlat) / 2;
+            if (latitude > mid ) {
                 hash_value = (hash_value << 1) + 1;
                 minlat = mid;
-            } else {
+            }
+            else {
                 hash_value = (hash_value << 1) + 0;
                 maxlat = mid;
             }
@@ -67,33 +82,38 @@ var encode = function(latitude, longitude, numberOfChars){
             hash_value = 0;
         } 
     }
-    return chars.join('')
+    return chars.join('');
 };
 
-var decode_bbox = function(hash_string){
-    var islon = true;
-    var maxlat = 90, minlat = -90;
+var decode_bbox = function(hash_string) {
+    var hash_value = 0;
+
+    var maxlat = 90,  minlat = -90;
     var maxlon = 180, minlon = -180;
 
-    var hash_value = 0;
-    for(var i=0,l=hash_string.length; i<l; i++) {
+    var length = hash_string.length;
+    var islon = true;
+    for (var i = 0; i < length; i++) {
         var code = hash_string[i].toLowerCase();
         hash_value = BASE32_CODES_DICT[code];
 
-        for (var bits=4; bits>=0; bits--) {
+        for (var bits = 4; bits >= 0; bits--) {
             var bit = (hash_value >> bits) & 1;
-            if (islon){
-                var mid = (maxlon+minlon)/2;
-                if(bit == 1){
+            if (islon) {
+                var mid = (maxlon + minlon) / 2;
+                if (bit == 1) {
                     minlon = mid;
-                } else {
+                }
+                else {
                     maxlon = mid;
                 }
-            } else {
-                var mid = (maxlat+minlat)/2;
-                if(bit == 1){
+            }
+            else {
+                var mid = (maxlat + minlat) / 2;
+                if (bit == 1) {
                     minlat = mid;
-                } else {
+                }
+                else {
                     maxlat = mid;
                 }
             }
@@ -101,16 +121,22 @@ var decode_bbox = function(hash_string){
         }
     }
     return [minlat, minlon, maxlat, maxlon];
-}
+};
 
-var decode = function(hash_string){
+var decode = function(hash_string) {
     var bbox = decode_bbox(hash_string);
-    var lat = (bbox[0]+bbox[2])/2;
-    var lon = (bbox[1]+bbox[3])/2;
-    var laterr = bbox[2]-lat;
-    var lonerr = bbox[3]-lon;
-    return {latitude:lat, longitude:lon, 
-        error:{latitude:laterr, longitude:lonerr}};
+    var lat = (bbox[0] + bbox[2]) / 2;
+    var lon = (bbox[1] + bbox[3]) / 2;
+    var laterr = bbox[2] - lat;
+    var lonerr = bbox[3] - lon;
+    return {
+        latitude:  lat,
+        longitude: lon,
+        error: {
+            latitude:  laterr,
+            longitude: lonerr
+        }
+    };
 };
 
 /**
@@ -119,20 +145,45 @@ var decode = function(hash_string){
  * [1,1] - northeast
  * ...
  */
-var neighbor = function(hashstring, direction) {
-    var lonlat = decode(hashstring);
-    var neighbor_lat = lonlat.latitude 
-        + direction[0] * lonlat.error.latitude * 2;
-    var neighbor_lon = lonlat.longitude 
-        + direction[1] * lonlat.error.longitude * 2;
-    return encode(neighbor_lat, neighbor_lon, hashstring.length);
-}
+var neighbor = function(hash_string, direction) {
+    var lonlat = decode(hash_string);
+    var neighbor_lat = lonlat.latitude  + direction[0] * lonlat.error.latitude  * 2;
+    var neighbor_lon = lonlat.longitude + direction[1] * lonlat.error.longitude * 2;
+    return encode(neighbor_lat, neighbor_lon, hash_string.length);
+};
+
+var neighbors = function(hash_string) {
+    var lonlat  = decode(hash_string);
+    var lat     = lonlat.latitude;
+    var lon     = lonlat.longitude;
+    var lat_err = lonlat.error.latitude  * 2;
+    var lon_err = lonlat.error.longitude * 2;
+    var length  = hash_string.length;
+
+    var neighbor_hash_strings = [];
+    for (var i = 0; i < NUM_NEIGHBORS; i++) {
+        var neighbor_lat = lat + NEIGHBOR_DIRECTIONS[i][0] * lat_err;
+        var neighbor_lon = lon + NEIGHBOR_DIRECTIONS[i][1] * lon_err;
+        var neighbor_hash_string = encode(neighbor_lat, neighbor_lon, length);
+        neighbor_hash_strings.push(neighbor_hash_string);
+    }
+
+    return neighbor_hash_strings;
+};
+
+var expand = function(hash_string) {
+    var hash_strings = neighbors(hash_string);
+    hash_strings.push(hash_string);
+    return hash_strings;
+};
 
 var geohash = {
     'encode': encode,
     'decode': decode,
     'decode_bbox': decode_bbox,
-    'neighbor': neighbor,
-}
-module.exports = geohash;
+    'neighbor':    neighbor,
+    'neighbors':   neighbors,
+    'expand':      expand
+};
 
+module.exports = geohash;
