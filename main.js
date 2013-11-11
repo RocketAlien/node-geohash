@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2011, Sun Ning.
+ * Copyright (c) 2011, Sun Ning and contributors.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,18 @@ var BASE32_CODES_DICT = {};
 for(var i=0; i<BASE32_CODES.length; i++) {
     BASE32_CODES_DICT[BASE32_CODES.charAt(i)]=i;
 }
+
+var NUM_NEIGHBORS = 8;
+var NEIGHBOR_DIRECTIONS = [
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [-1, 1],
+    [-1, 0],
+    [-1, -1],
+    [0, -1],
+    [1, -1]
+];
 
 var encode = function(latitude, longitude, numberOfChars){
     numberOfChars = numberOfChars || 9;
@@ -101,7 +113,7 @@ var decode_bbox = function(hash_string){
         }
     }
     return [minlat, minlon, maxlat, maxlon];
-}
+};
 
 var decode = function(hash_string){
     var bbox = decode_bbox(hash_string);
@@ -128,11 +140,38 @@ var neighbor = function(hashstring, direction) {
     return encode(neighbor_lat, neighbor_lon, hashstring.length);
 }
 
+var neighbors = function(hashstring) {
+    var lonlat  = decode(hashstring);
+    var lat     = lonlat.latitude;
+    var lon     = lonlat.longitude;
+    var lat_err = lonlat.error.latitude  * 2;
+    var lon_err = lonlat.error.longitude * 2;
+    var length  = hashstring.length;
+
+    var neighbor_hashes = [];
+    for (int i = 0; i < NUM_NEIGHBORS; i++) {
+        var neighbor_lat = lat + NEIGHBOR_DIRECTIONS[i][0] * lat_err;
+        var neighbor_lon = lon + NEIGHBOR_DIRECTIONS[i][1] * lon_err;
+        var neighbor_hash = encode(neighbor_lat, neighbor_lon, length);
+        neighbor_hashes.push(neighbor_hash);
+    }
+
+    return neighbor_hashes;
+};
+
+var expand = function(hashstring) {
+    var hashes = neighbors(hashstring);
+    hashes.push(hashtring);
+    return hashes;
+};
+
 var geohash = {
     'encode': encode,
     'decode': decode,
     'decode_bbox': decode_bbox,
     'neighbor': neighbor,
-}
-module.exports = geohash;
+    'neighbors': neighbors,
+    'expand': expand
+};
 
+module.exports = geohash;

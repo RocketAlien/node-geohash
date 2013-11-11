@@ -16,4 +16,3 @@ assert.equal(north, 'dqcjw');
 
 var southwest = geohash.neighbor('DQCJQ', [-1,-1]);
 assert.equal(southwest, 'dqcjj');
-
