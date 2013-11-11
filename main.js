@@ -149,7 +149,7 @@ var neighbors = function(hashstring) {
     var length  = hashstring.length;
 
     var neighbor_hashes = [];
-    for (int i = 0; i < NUM_NEIGHBORS; i++) {
+    for (var i = 0; i < NUM_NEIGHBORS; i++) {
         var neighbor_lat = lat + NEIGHBOR_DIRECTIONS[i][0] * lat_err;
         var neighbor_lon = lon + NEIGHBOR_DIRECTIONS[i][1] * lon_err;
         var neighbor_hash = encode(neighbor_lat, neighbor_lon, length);
